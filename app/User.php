@@ -31,7 +31,7 @@ class User extends Model
         if($user_exists){
             return [
                 'status' => FALSE,
-                'msg' => '用户已存在'
+                'msg' => 'user exists'
             ];
         }
 //        $hashed_password = Hash::make($password);
@@ -49,14 +49,29 @@ class User extends Model
         }
         return [
             'status' => FALSE,
-            'msg' => '注册失败'
+            'msg' => 'registe failed'
         ];
+    }
+
+    public function read(){
+        if(!rq('id'))
+            return ['status' => FALSE, 'msg' => 'id required'];
+        $get = array('id','username', 'avatar_url', 'intro');
+        $user = $this->find(rq('id'), $get);
+        $data = $user->toArray();
+        if(!$user)
+            return ['status' => FALSE, 'msg' => 'user not exists'];
+        $answer_count = answer_ins()->where('user_id', rq('id'))->count();
+        $question_count = question_ins()->where('user_id', rq('id'))->count();
+        $data['answer_count'] = $answer_count;
+        $data['question_count'] = $question_count;
+        return ['status' => TRUE, 'data' => $data];
     }
 
     public function login(){
         $has_username_and_password = $this->has_username_and_password();
         if(!$has_username_and_password){
-            return ['status' => FALSE, 'msg' => '用户名或密码不能为空'];
+            return ['status' => FALSE, 'msg' => 'username and password are required'];
         }
 
         /**
@@ -70,7 +85,7 @@ class User extends Model
          */
         $user = $this->where('username', $username)->first();
         if(!$user){
-            return ['status' => FALSE, 'msg' => '用户不存在'];
+            return ['status' => FALSE, 'msg' => 'user not exists'];
         }
 
         /**
@@ -78,7 +93,7 @@ class User extends Model
          */
         $hashed_password = $user->password;
         if(!Hash::check($password, $hashed_password)){
-            return ['status' => FALSE, 'msg' => '密码有误'];
+            return ['status' => FALSE, 'msg' => 'invalid password'];
         }
 
         /**
@@ -87,7 +102,7 @@ class User extends Model
         session()->put('username', $username);
         session()->put('user_id', $user->id);
 
-        return ['status' => TRUE, 'msg' => '登录成功', 'data' => array('id' => $user->id)];
+        return ['status' => TRUE, 'msg' => 'login successfully', 'data' => array('id' => $user->id)];
     }
 
     public function logout(){
@@ -95,10 +110,46 @@ class User extends Model
 //        $username = session()->pull('username'); //将session中的内容直接取出变量，并清空当前健值的session
 //        session()->set('perspon.username', 'asd'); //session可嵌套
         if(!session('username') && !session('user_id'))
-            return ['status' => FALSE, 'msg' => '暂时还没登录'];
+            return ['status' => FALSE, 'msg' => 'still not login'];
         session()->forget('username');
         session()->forget('user_id');
-        return ['status' => TRUE, 'msg' => '退出成功'];
+        return ['status' => TRUE, 'msg' => 'logout successfully'];
+    }
+
+    public function change_password(){
+        if(!$this->is_logged_in())
+            return ['status' => FALSE, 'msg' => 'login required'];
+
+        if(!rq('old_password') ||!rq('new_password'))
+            return ['status' => FALSE, 'msg' => 'old_password and new_password are required'];
+
+        $user = $this->find(session('user_id'));
+
+        if(!Hash::check(rq('old_password'), $user->password))
+            return ['status' => FALSE, 'msg' => 'invalid old password'];
+
+        $user->password = bcrypt(rq('new_password'));
+        return $user->save() ? ['status' => TRUE, 'msg' => 'edit successfully'] : ['status' => FALSE, 'msg' => 'db update failed'];
+    }
+
+    public function reset_password(){
+        if(!rq('phone'))
+            return ['status' => FALSE, 'msg' => 'phone required'];
+
+        $user = $this->where('phone', rq('phone'))->first();
+        if(!$user)
+            return ['status' => FALSE, 'msg' => 'invalid phone number'];
+        $captcha = $this->generate_captcha();
+        $user->phone_captcha = $captcha;
+        return $user->save() ? ['status' => TRUE, 'msg' => 'edit successfully'] : ['status' => FALSE, 'msg' => 'db update failed'];
+    }
+
+    /**
+     * 随机生成验证码
+     * @return int
+     */
+    private function generate_captcha(){
+        return rand(1000,9999);
     }
 
     /**
@@ -117,5 +168,17 @@ class User extends Model
      */
     public function is_logged_in(){
         return session('user_id') ?: false;
+    }
+
+    public function answers(){
+        return $this->belongsToMany('App\Answer')
+            ->withPivot('vote')
+            ->withTimestamps();
+    }
+
+    public function questions(){
+        return $this->belongsToMany('App\Question')
+            ->withPivot('vote')
+            ->withTimestamps();
     }
 }

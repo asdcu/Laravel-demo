@@ -11,6 +11,12 @@
 |
 */
 
+function paginate($page=1, $limit=15){
+    $limit = $limit ?: 15;
+    $skip = ($page ? $page - 1 : 0) * $limit;
+    return [$limit, $skip];
+}
+
 function rq($key=null, $default=null){
     if(!$key)
         return Request::all();
@@ -27,6 +33,10 @@ function question_ins(){
 
 function answer_ins(){
     return new App\Answer();
+}
+
+function comment_ins(){
+    return new App\Comment();
 }
 
 Route::get('/', function () {
@@ -57,6 +67,24 @@ Route::any('api/login', function (){
  */
 Route::any('api/logout', function (){
     return user_ins()->logout();
+});
+
+/**
+ * 修改密码
+ */
+Route::any('api/user/change_password', function (){
+    return user_ins()->change_password();
+});
+
+/**
+ * 找回密码
+ */
+Route::any('api/user/reset_password', function (){
+    return user_ins()->reset_password();
+});
+
+Route::any('api/user/read', function (){
+    return user_ins()->read();
 });
 
 /**
@@ -107,6 +135,38 @@ Route::any('api/answer/change', function(){
 Route::any('api/answer/read', function(){
     return answer_ins()->read();
 });
+
+/**
+ * 投票
+ */
+Route::any('api/answer/vote', function(){
+    return answer_ins()->vote();
+});
+
+/**
+ * 增加评论
+ */
+Route::any('api/comment/add', function(){
+    return comment_ins()->add();
+});
+
+/**
+ * 查看评论
+ */
+Route::any('api/comment/read', function(){
+    return comment_ins()->read();
+});
+
+/**
+ * 删除评论
+ */
+Route::any('api/comment/remove', function(){
+    return comment_ins()->remove();
+});
+
+Route::any('api/timeline', 'CommonController@timeline');
+
+
 
 /**
  * 测试方法

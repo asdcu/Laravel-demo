@@ -71,8 +71,7 @@ class Question extends Model
             return ['status' => TRUE, 'data' => $this->find(rq('id'))];
 
         /*分页相关参数*/
-        $limit = rq('limit') ?: 15;
-        $skip = (rq('page') ? rq('page') - 1 : 0) * $limit;
+        list($limit, $skip) = paginate(rq('page'), rq('limit'));
 
         /*获取问题collection*/
         $questions = $this

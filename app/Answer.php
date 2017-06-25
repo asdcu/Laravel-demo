@@ -97,4 +97,38 @@ class Answer extends Model
 
         return ['status' => TRUE, 'data' => $answers ];
     }
+
+    /**
+     * 投票
+     * @return array
+     */
+    public function vote(){
+        if(!user_ins()->is_logged_in())
+            return ['status' => FALSE, 'msg' => 'login required'];
+
+        if(!rq('id') || !rq('vote'))
+            return ['status' => FALSE, 'msg' => 'answer_id and vote are required'];
+
+        $answer = $this->find(rq('id'));
+        if (!$answer)
+            return ['status' => FALSE, 'msg' => 'answer not exists'];
+
+        /*1为赞同2为反对*/
+        $vote = rq('vote') <= 1 ? 1 : 2;
+
+        /*检测此用户是否有在相同问题下投过票,有则删除*/
+        $answer->users()
+            ->newPivotStatement()
+            ->where('user_id', session('user_id'))
+            ->where('answer_id', rq('id'))
+            ->delete();
+        $answer->users()->attach(session('user_id'), ['vote' => $vote]);
+        return ['status' => TRUE, 'msg' => '投票成功'];
+    }
+
+    public function users(){
+        return $this->belongsToMany('App\User')
+            ->withPivot('vote')
+            ->withTimestamps(); //同时更新时间
+    }
 }
